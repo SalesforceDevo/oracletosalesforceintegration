@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="3b87fb97-a8c6-46bb-a1f8-96f287e1c6d5" >
+		<db:oracle-connection host="localhost" user="system" password="admin123" serviceName="XEPDB1" />
+	</db:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="8aab6a81-11bc-4135-9d19-6350ac9e015e" >
+		<http:listener-connection host="localhost" port="8082" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="9b58c564-b149-4dc2-8c06-b025f48089bc" >
+		<salesforce:basic-connection username="itsshaikabbas@lamar.sandbox" password="Abbas@1225" securityToken="RYyiou7jiAiwzPCMqn1CiK25" />
+	</salesforce:sfdc-config>
+	<flow name="oracletosalesforceintegrationFlow" doc:id="f1657ea8-1191-43f2-a054-e72ce804f509" >
+		<http:listener doc:name="Listener" doc:id="b9bc5369-285c-4e94-98d3-a95a5e9d8701" config-ref="HTTP_Listener_config" path="/api/select-query"/>
+		<db:select doc:name="Select" doc:id="0aa4a70d-1786-4c59-b7d1-651937c84146" config-ref="Database_Config">
+			<db:sql><![CDATA[select * from customers where customer_id<=500]]></db:sql>
+		</db:select>
+		<logger level="INFO" doc:name="Logger" doc:id="2e8bd31f-8aac-44b0-9868-78e0810820b7" message="#[payload]"/>
+		<batch:job jobName="oracletosalesforceintegrationBatch_Job" doc:id="de70902c-59b3-4e8a-89c8-81ee8dd75779" >
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="39701a86-6441-4c23-bcfd-3a4dd771e516" >
+					<ee:transform doc:name="Transform Message" doc:id="1bebc3a9-6e80-49da-bfd8-1331f7e169d8">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+(payload match {
+    case is Array -> payload   // If it's already an array, use it directly
+    else -> [payload]          // Wrap it in an array if it's a single object
+}) map (record) -> {
+    Name: record.CUSTOMER_ID,                      // Maps CUSTOMER_ID to Salesforce Name field
+    Integra_Customer_ID__c: record.CUSTOMER_ID,    // External ID for Customers
+    First_Name__c: record.FIRST_NAME,              // Maps to First Name
+    Last_Name__c: record.LAST_NAME,                // Maps to Last Name
+    Age__c: record.AGE as Number,                  // Maps to Age field
+    Gender__c: record.GENDER,                      // Maps to Gender picklist
+    City__c: record.CITY,                          // Maps to City
+    Contact_Number__c: record.CONTACT_NUMBER,      // Maps to Contact Number
+    Email__c: record.EMAIL                         // Maps to Email
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+					<salesforce:create doc:name="Create" doc:id="d28dcebd-72d0-4212-a685-219aa2c37443" config-ref="Salesforce_Config" type="Customers__c">
+					</salesforce:create>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="766f0363-9df5-4d0a-9560-b8000b668fd5" message='#["Batch job completed. Total Records: #[vars.batchJobInstance.totalRecords], Successful Records: #[vars.batchJobInstance.successfulRecords], Failed Records: #[vars.batchJobInstance.failedRecords]."]'/>
+			</batch:on-complete>
+		</batch:job>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="82d4717c-983a-4b19-a2d6-b36371cdf2dc" >
+				<logger level="INFO" doc:name="Logger" doc:id="7eae7f60-84a0-428d-82f3-3687abc338a2" message='#["Non-Critical Error: #[error.errorType], Description: #[error.description]. Continuing execution."]'/>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>
