@@ -81,7 +81,7 @@ The MuleSoft flow consists of the following components:
 1. **Integration Flow Overview**:
    ![Integration Flow Overview](./Screenshot%202025-01-20%20111243.png)
 
-2. **Batch Processing in Action**:
+2. **Records Inserted In Salesforce after Triggering Mulesoft**:
    ![Batch Processing](./Screenshot%202025-01-20%20111655.png)
 
 
