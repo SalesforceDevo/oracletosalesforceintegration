@@ -78,7 +78,7 @@ The MuleSoft flow consists of the following components:
 
 ## Screenshots
 ### MuleSoft Flow
-![MuleSoft Flow](path/to/your/screenshot/Screenshot%202025-01-20%20111243.png)
+![MuleSoft Flow]("C:\Users\abbas\Pictures\Screenshots\Screenshot 2025-01-20 111243.png")
 
 ---
 
